@@ -1,103 +1,127 @@
 package de.opitzconsulting.deeplearning4j.hackathon;
 
-import org.datavec.api.io.filters.RandomPathFilter;
-import org.datavec.api.split.FileSplit;
-import org.datavec.api.split.InputSplit;
-import sun.awt.image.FileImageSource;
-import sun.awt.image.JPEGImageDecoder;
-
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
-import java.util.Iterator;
-import java.util.List;
 import java.util.Random;
-import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
+import org.datavec.api.io.filters.RandomPathFilter;
+import org.datavec.api.split.FileSplit;
+import org.datavec.api.split.InputSplit;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import sun.awt.image.FileImageSource;
+import sun.awt.image.JPEGImageDecoder;
 
 public class DataPreprocessing {
 
-    private static long seed = 333;
-    private static double splitValidation = 0.2;
-    private static Random rng = new Random(seed);
-    private static String originalDir = "src\\main\\resources\\PetImages";
-    private static String validationDir = System.getProperty("user.dir") + "\\" + "src\\main\\resources\\ValidationPetImages";
-    private static String classOneName = "Cat";
-    private static String classTwoName = "Dog";
+	protected static final Logger LOGGER = LoggerFactory.getLogger(DataPreprocessing.class);
+	private static final long SEED = 333;
+	private static final double TWENTY_PERCENT = 0.2;
+	private static final Random RNG = new Random(SEED);
+	private static final String USER_DIR = System.getProperty("user.dir");
+	private static final Path ORIGINAL_IMAGE_DIR = Paths.get(USER_DIR, "src", "main", "resources", "Images");
+	private static final Path VALIDATION_DIR = Paths.get(USER_DIR, "src", "main", "resources", "ValidationImages");
 
-    public static void main(String args[]) throws Exception {
-        //ToDo: Delete corrupt jpeg data (Fullfill implementation of method).
-        deleteCorruptJpegData();
-        //ToDo: Fulfill implementation of this method: Split up training and test set
-        splitUpTrainingAndTestSet();
-    }
+	public static void main(String args[]) throws Exception {
+		deleteCorruptJpegData();
+		splitUpTrainingAndTestSet("Cat", "Dog");
+	}
 
-    //ToDo: Fullfill implementation of this method
-    //Some files are corrupted. Have a look at Cat\10404.jpg for example.
-    //If we put them into the training pipeline, Deeplearning4j will crash during training.
-    //Therefore we need to validate the data and delete corrupt images, before starting the training pipeline
-    private static void deleteCorruptJpegData() throws IOException, URISyntaxException {
-        File dirCats = new File(originalDir + "/" + classOneName);
-        File dirDogs = new File(originalDir + "/" + classTwoName);
-        List<File> fileList = Arrays.stream(dirCats.listFiles()).collect(Collectors.toList());
-        fileList.addAll(Arrays.stream(dirDogs.listFiles()).collect(Collectors.toList()));
+	// Some files are corrupted. Have a look at Cat\10404.jpg for example.
+	// If we put them into the training pipeline, Deeplearning4j will crash during
+	// training.
+	// Therefore we need to validate the data and delete corrupt images, before
+	// starting the training pipeline
+	private static void deleteCorruptJpegData() throws IOException, URISyntaxException {
+		LOGGER.info("Searching for invalid JPEG files and delete them...");
+		Files.walk(ORIGINAL_IMAGE_DIR)
+				.map(p -> p.toFile())
+				.filter(f -> f.getName().endsWith(".jpg"))
+				.parallel()
+				.filter(f -> !DataPreprocessing.isValidJPEG(f))
+				.forEach(f -> LOGGER.info("Deleting {} with result: {}", f, f.delete()));
+		LOGGER.info("\t|---> Finished.");
+	}
 
-        File[] directoryListing = dirCats.listFiles();
-        if (directoryListing != null) {
-            for (File child : directoryListing) {
-                try {
-                    //ToDo: Use class JPEGImageDecoder in package sun.awt.image to Open JPEG file.
-                    //If it succeeds, the JPEG file is valid. If not, an exception will be thrown.
-                    //JPEGImageDecoder decoder = ...
-                    //decoder.produceImage();
-                }
-                catch (Exception e) {
-                    //ToDo: If an exception is thrown for file, delete it.
-                    //You can use java.nio.file.Files for that.
-                }
-            }
-        }
-    }
+	// Split up test set (20%) of images into separate folder.
+	// Hint: You can use the functionality of the classes:
+	// FileSplit, InputSplit and RandomPathFilter
+	// You can find the documentation here:
+	// https://deeplearning4j.org/docs/latest/datavec-overview
+	private static void splitUpTrainingAndTestSet(String first, String second, String... more) {
+		Stream.concat(Arrays.stream(new String[] {first, second}), Arrays.stream(more))
+			.forEach(clazz -> handleClass(clazz));
+	}
 
-    //ToDo: Split up test set (20%) of images into separate folder.
-    //Hint: You can use the functionality of the classes:
-    //FileSplit, InputSplit and RandomPathFilter
-    //You can find the documentation here:
-    //https://deeplearning4j.org/docs/latest/datavec-overview
-    private static void splitUpTrainingAndTestSet() {
+	private static void handleClass(String pClass) {
+		Path validationClassDir = VALIDATION_DIR.resolve(pClass);
+		
+		if(!containsFiles(validationClassDir)) {
+			RandomPathFilter pathFilter = new RandomPathFilter(RNG, "jpg");
+			FileSplit fs = new FileSplit(ORIGINAL_IMAGE_DIR.resolve(pClass).toFile());
+			InputSplit[] is = fs.sample(pathFilter, getPercentage(TWENTY_PERCENT));
+	
+			if (is.length > 0) {
+				// create Folder Structure for validation directory
+				validationClassDir.toFile().mkdirs();
+				
+				// move files
+				Arrays.asList(is[0].locations())
+					.stream()
+					.map(uri -> Paths.get(uri))
+					.forEach(p -> {
+									Path target = validationClassDir.resolve(p.getFileName());
+									try {
+										Files.move(p, target);
+										LOGGER.info("Moved {} to {}", p, target);
+									} catch (IOException e) {
+										LOGGER.error("{} could not be copied to {}", p, target);
+									}
+								  });
+			}
+		} else {
+			LOGGER.error("{} already contains files for testing the network", validationClassDir);
+		}
+	}
+	
+	private static boolean isValidJPEG(File pFile) {
+		boolean isValid = false;
 
-        File mainPath = new File(System.getProperty("user.dir"), originalDir);
-        //RandomPathFilter pathFilter = ...
-        //FileSplit fs = ...
-        //Hint: You can use sample()-function of FileSplit to create the InputSplit.
-        //InputSplit testData = ...
+		try (FileInputStream fis = new FileInputStream(pFile)) {
+			JPEGImageDecoder decoder = new JPEGImageDecoder(new FileImageSource(pFile.getAbsolutePath()), fis);
+			decoder.produceImage();
+			isValid = true;
+		} catch (FileNotFoundException e) {
+			LOGGER.error("{} could not be found", pFile);
+		} catch (Exception e) {
+			LOGGER.error("{} could not be opened", pFile);
+		}
 
-        //Move validation data to different directory
-        new File(validationDir + "/" +classOneName).mkdirs();
-        new File(validationDir + "/" +classTwoName).mkdirs();
+		return isValid;
+	}
+	
+	private static boolean containsFiles(Path pPath) {
+		try {
+			return Files.walk(pPath).map(p -> p.toFile()).filter(f -> !f.isDirectory()).count() > 0;
+		} catch (IOException e) {
+			return false;
+		}
+	}
 
-        //ToDo: Comment out and fullfil implementation:
-        //Iterate over testData and move Directories to "validationDir"
-        //for(Iterator<URI> iter = ...
-            //Path path = Paths.get(iter.next());
+	private static double[] getPercentage(double percent) {
+		if (percent > 1.0 || percent <= 0) {
+			throw new IllegalArgumentException("percent must be between 0 and 1");
+		}
 
-            //Path filename = path.getFileName();
-            //try {
-                //if(path.toString().contains(classOneName))
-                    //Files.move(path,Paths.get( validationDir + "/" + classOneName + "/" + filename));
-                //else
-                    //Files.move(path,Paths.get( validationDir + "/" + classTwoName + "/" + filename));
-            //} catch (Exception e) {
-            //    e.printStackTrace();
-            //}
-        //}
-    }
-
-
-
+		return new double[] { percent, (1.0 - percent) };
+	}
 }
