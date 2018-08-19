@@ -66,27 +66,26 @@ Your dev environment is now successfully setup for the Hackathon. Next we have t
 # Step 1 - Download the data (Images with cats and dogs) from Microsoft:
 https://www.microsoft.com/en-us/download/confirmation.aspx?id=54765
 
-Create resources directory under "src/main/resources" of Git project. Copy the downloaded zip file into the resources folder and unzip it there so that PetImages is a direct child of folder "resources".
+Create Images directory under "src/main/resources/Images" of Git project. Copy the downloaded zip file into the Imgages folder and unzip it there so that Cats and Dogs is a direct child of folder "Images".
 
 Keep the original zip file as backup!
 
 
 # Step 2 - Preprocessing: Validate and Split Up Input data
-Now we are starting to code. The project you have imported has implemented the base functionality for this hackathon. However, there are some ToDos in the code which are a good point for you to start.
-
+Now we are starting to code. The project you have imported has implemented the base functionality for this hackathon. 
 Have a look at DataPreprocessing.java
 
 ## Validate Input data:
-First of all we have to validate the input data. Some of the image data is corrupted. Have a look at Cat\10404.jpg for example. Deeplearning4j will crash during the training phase, if corrupt image files are fed into the pipeline. Therefore we have to delete it. Look at the method "deleteCorruptJpegData()" and fullfil the implementation. You will find hints in the code.
+First of all we have to validate the input data. Some of the image data is corrupted. Have a look at Cat\10404.jpg for example. Deeplearning4j will crash during the training phase, if corrupt image files are fed into the pipeline. Therefore we have to delete it. Look at the method "deleteCorruptJpegData()" this will delete images with invalid JPEG data.
 
 ## Split up training and test set
 
 Next we have to split up training and test data. To compare different neural network architectures fairly, we have to create a fixed test set for the whole hackathon. Suggestion is to use 20 % of the data as test data.
-Fullfill implementation of method "splitUpTrainingAndTestSet()".
+This is implemented within the method "splitUpTrainingAndTestSet()".
 
 ## Execute DataPreprocessing
 
-Finally start the main method in DataPreprocessing. Check if everything works fine. If yes, you will have two directories under resources: "PetImages" for our Training Set and "ValidationPetImages" for our test set.
+Finally start the main method in DataPreprocessing. Check if everything works fine. If yes, you will have two directories under resources: "Images" for our Training Set and "ValidationImages" for our test set.
 There should be ~10.000 Cats and ~10.000 Dogs for the training set and ~2500 Cats and ~2500 Dogs for the test set.
 
 # Step 3 - Check training pipeline
@@ -99,8 +98,6 @@ Use this network as starting point to see if everything is working fine. The net
 As you can see in the method trainModel() the model is trained easily just by calling network.fit(). 
 
 After a training iteration we would like to see the performance of the trained model. Therefore we have to implement a method "evaluateModel()" which prints out the performance of the trained model on the Validation set.
-
-But hold on, there's an issue within this method! Can you find it and fix it?
 
 
 # Step 4 - Run the example and check if everything works fine.
