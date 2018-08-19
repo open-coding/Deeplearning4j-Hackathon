@@ -1,5 +1,11 @@
 package de.opitzconsulting.deeplearning4j.hackathon;
 
+import static java.lang.Math.toIntExact;
+
+import java.io.File;
+import java.nio.file.Path;
+import java.util.Random;
+
 import org.datavec.api.io.filters.BalancedPathFilter;
 import org.datavec.api.io.labels.ParentPathLabelGenerator;
 import org.datavec.api.split.FileSplit;
@@ -9,32 +15,32 @@ import org.datavec.image.recordreader.ImageRecordReader;
 import org.deeplearning4j.api.storage.StatsStorage;
 import org.deeplearning4j.datasets.datavec.RecordReaderDataSetIterator;
 import org.deeplearning4j.eval.Evaluation;
-import org.deeplearning4j.nn.conf.*;
+import org.deeplearning4j.nn.conf.MultiLayerConfiguration;
+import org.deeplearning4j.nn.conf.NeuralNetConfiguration;
 import org.deeplearning4j.nn.conf.inputs.InputType;
-import org.deeplearning4j.nn.conf.layers.*;
+import org.deeplearning4j.nn.conf.layers.ConvolutionLayer;
+import org.deeplearning4j.nn.conf.layers.DenseLayer;
+import org.deeplearning4j.nn.conf.layers.OutputLayer;
+import org.deeplearning4j.nn.conf.layers.SubsamplingLayer;
 import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
 import org.deeplearning4j.nn.weights.WeightInit;
 import org.deeplearning4j.optimize.listeners.ScoreIterationListener;
 import org.deeplearning4j.ui.api.UIServer;
 import org.deeplearning4j.ui.stats.StatsListener;
 import org.deeplearning4j.ui.storage.InMemoryStatsStorage;
+import org.deeplearning4j.util.ModelSerializer;
 import org.nd4j.linalg.activations.Activation;
 import org.nd4j.linalg.dataset.api.iterator.DataSetIterator;
 import org.nd4j.linalg.dataset.api.preprocessor.DataNormalization;
 import org.nd4j.linalg.dataset.api.preprocessor.ImagePreProcessingScaler;
-import org.nd4j.linalg.learning.config.*;
+import org.nd4j.linalg.learning.config.Nesterovs;
 import org.nd4j.linalg.lossfunctions.LossFunctions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.File;
-import java.util.Random;
-
-import static java.lang.Math.toIntExact;
-
 public class CatsDogsClassification {
 
-    protected static final Logger log = LoggerFactory.getLogger(CatsDogsClassification.class);
+    protected static final Logger LOGGER = LoggerFactory.getLogger(CatsDogsClassification.class);
     protected static long seed = 42;
     protected static Random rng = new Random(seed);
 
@@ -47,45 +53,40 @@ public class CatsDogsClassification {
 
     protected static int epochs = 25;
 
-    private static String trainingPathDir = "src\\main\\resources\\PetImages";
-    private static String validationDir = "src\\main\\resources\\ValidationPetImages";
+    private static Path TRAINING_IMAGES_DIR = DataPreprocessing.ORIGINAL_IMAGE_DIR;
+    private static Path VALIDATION_DIR = DataPreprocessing.VALIDATION_DIR;
     private static String modelFileName = "model.zip";
 
     public static void main(String args[]) throws Exception {
 
-
         //Normalize grey values of image channels between 0 and 1
         DataNormalization scaler = new ImagePreProcessingScaler(0, 1);
 
-        RecordReaderDataSetIterator trainDataIter = generateRecordReaderDataSetIterator(trainingPathDir);
+        RecordReaderDataSetIterator trainDataIter = generateRecordReaderDataSetIterator(TRAINING_IMAGES_DIR);
 
-        MultiLayerNetwork network = hackathonBasicNetwork();
-        log.info("Get model...");
+        MultiLayerNetwork network;
+        LOGGER.info("Get network model...");
         try {
-            //ToDo: Try to load saved model, if it is available in file "modelFileName".
-            //Look at class ModelSerializer https://deeplearning4j.org/modelpersistence
-            //network = ...
+        	network = ModelSerializer.restoreMultiLayerNetwork(new File(modelFileName));
+        	LOGGER.info("network restored from file...");
         }
         catch (Exception e) {
             //If model cannot be deserialized from file, a fresh model is loaded.
             network = hackathonBasicNetwork();
+            LOGGER.info("new network created...");
         }
 
         //Visit http://localhost:9000/train to watch training progress
         startUIServer(network);
 
-        log.info("Train model....");
+        LOGGER.info("Train model....");
         while (true) {
             trainModel(network,scaler,trainDataIter, 1);
-            log.info("Evaluate model....");
+            LOGGER.info("Evaluate model....");
             evaluateModel(scaler, network);
 
-
-            //ToDo: Save model in file "model.zip" after each training epoch.
-            //This will allow you to resume training and reuse your model for recognition, later.
-            //Look at class ModelSerializer https://deeplearning4j.org/modelpersistence
-            //File modelFile = new File(modelFileName);
-            //...
+            LOGGER.info("Saving network to file...");
+            ModelSerializer.writeModel(network, new File(modelFileName), true);
         }
     }
 
@@ -95,19 +96,18 @@ public class CatsDogsClassification {
         network.fit(iter, numEpochs);
     }
 
-    //ToDo: There's a big bug within this method. Can you fix it?
     private static void evaluateModel(DataNormalization scaler, MultiLayerNetwork network) throws Exception {
-        DataSetIterator evalIter = generateRecordReaderDataSetIterator(trainingPathDir);
+        DataSetIterator evalIter = generateRecordReaderDataSetIterator(VALIDATION_DIR);
         scaler.fit(evalIter);
         evalIter.setPreProcessor(scaler);
         Evaluation eval = network.evaluate(evalIter);
-        log.info(eval.stats(true));
+        LOGGER.info(eval.stats(true));
     }
 
-    private static RecordReaderDataSetIterator generateRecordReaderDataSetIterator(String pathDir) throws Exception {
+    private static RecordReaderDataSetIterator generateRecordReaderDataSetIterator(Path pPath) throws Exception {
         //ParentPathLabelGenerator will automatically treat image folders as output neurons
         ParentPathLabelGenerator labelMaker = new ParentPathLabelGenerator();
-        File mainPath = new File(System.getProperty("user.dir"), pathDir);
+        File mainPath = pPath.toFile();
         FileSplit fileSplit = new FileSplit(mainPath, NativeImageLoader.ALLOWED_FORMATS, rng);
         int numExamples = toIntExact(fileSplit.length());
 

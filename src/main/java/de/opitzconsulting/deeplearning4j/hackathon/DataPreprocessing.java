@@ -28,8 +28,8 @@ public class DataPreprocessing {
 	private static final double TWENTY_PERCENT = 0.2;
 	private static final Random RNG = new Random(SEED);
 	private static final String USER_DIR = System.getProperty("user.dir");
-	private static final Path ORIGINAL_IMAGE_DIR = Paths.get(USER_DIR, "src", "main", "resources", "Images");
-	private static final Path VALIDATION_DIR = Paths.get(USER_DIR, "src", "main", "resources", "ValidationImages");
+	public static final Path ORIGINAL_IMAGE_DIR = Paths.get(USER_DIR, "src", "main", "resources", "Images");
+	public static final Path VALIDATION_DIR = Paths.get(USER_DIR, "src", "main", "resources", "ValidationImages");
 
 	public static void main(String args[]) throws Exception {
 		if(ORIGINAL_IMAGE_DIR.toFile().exists()) {
