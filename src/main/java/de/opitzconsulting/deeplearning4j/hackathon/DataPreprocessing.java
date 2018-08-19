@@ -32,8 +32,14 @@ public class DataPreprocessing {
 	private static final Path VALIDATION_DIR = Paths.get(USER_DIR, "src", "main", "resources", "ValidationImages");
 
 	public static void main(String args[]) throws Exception {
-		deleteCorruptJpegData();
-		splitUpTrainingAndTestSet("Cat", "Dog");
+		if(ORIGINAL_IMAGE_DIR.toFile().exists()) {
+			deleteCorruptJpegData();
+			splitUpTrainingAndTestSet("Cat", "Dog");
+		} else {
+			LOGGER.error("{} does not exist. Maybe you want to download "
+					+ "https://www.microsoft.com/en-us/download/confirmation.aspx?id=54765 (Images with cats and dogs) "
+					+ "and extract the content of the PetsImages folder into the empty folder", ORIGINAL_IMAGE_DIR);
+		}
 	}
 
 	// Some files are corrupted. Have a look at Cat\10404.jpg for example.
