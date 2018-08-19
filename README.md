@@ -1,5 +1,9 @@
 # Deeplearning4j-Hackathon
 
+
+**The files in this repository have already been changed through the hackathon. If you are looking for the original files from Thomas Temme have a look at https://github.com/thtemme/Deeplearning4j-Hackathon**
+
+
 This repository contains a skeleton project for the Deeplearning4j-Hackathon. The hackathon challenge is to implement a Convolutional Neural Network for image classification which is able to distinct images of cats and dogs.
 Please follow the installation instructions and the data download (Step 0 and Step 1) before the Hackathon!
 
